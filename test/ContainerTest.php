@@ -324,12 +324,12 @@ class ContainerTest extends AbstractExpressiveContainerConfigTest
      * @param array<string,mixed> $dependencies
      * @dataProvider nonSharedServices
      */
-    public function testCreatesNonSharedInstanceOfService(array $dependencies, bool $servicesAsSynthetic, string $service): void
+    public function testCreatesNonSharedInstanceOfService(array $dependencies, string $service): void
     {
         $builder = new ContainerBuilder();
         $config = new Config([
             'dependencies' => $dependencies,
-        ], $servicesAsSynthetic);
+        ]);
 
         $config->configureContainerBuilder($builder);
         $builder->compile();
@@ -340,6 +340,9 @@ class ContainerTest extends AbstractExpressiveContainerConfigTest
         self::assertNotSame($instance1, $instance2);
     }
 
+    /**
+     * @return Generator<string,array<mixed>>
+     */
     public function nonSharedServices(): Generator
     {
         yield 'invokable' => [
@@ -351,7 +354,6 @@ class ContainerTest extends AbstractExpressiveContainerConfigTest
                     stdClass::class => stdClass::class,
                 ],
             ],
-            false,
             stdClass::class,
         ];
 
@@ -364,7 +366,6 @@ class ContainerTest extends AbstractExpressiveContainerConfigTest
                     stdClass::class => static function () {return new stdClass();},
                 ],
             ],
-            false,
             stdClass::class,
         ];
 
@@ -380,8 +381,27 @@ class ContainerTest extends AbstractExpressiveContainerConfigTest
                     'foo' => stdClass::class,
                 ],
             ],
-            false,
             'foo',
+        ];
+
+        yield 'invokable not shared by default' => [
+            [
+                'sharedByDefault' => false,
+                'invokables' => [
+                    stdClass::class => stdClass::class,
+                ],
+            ],
+            stdClass::class,
+        ];
+
+        yield 'factory not shared by default' => [
+            [
+                'sharedByDefault' => false,
+                'factories' => [
+                    stdClass::class => static function () {return new stdClass();},
+                ],
+            ],
+            stdClass::class,
         ];
     }
 }
