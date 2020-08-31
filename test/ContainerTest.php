@@ -2,9 +2,11 @@
 
 namespace JSoumelidisTest\SymfonyDI\Config;
 
+use Generator;
 use JSoumelidis\SymfonyDI\Config\Config;
 use JSoumelidis\SymfonyDI\Config\ContainerFactory;
 use Psr\Container\ContainerInterface;
+use stdClass;
 use Symfony\Component\DependencyInjection\Alias;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Zend\ContainerConfigTest\AbstractExpressiveContainerConfigTest;
@@ -316,5 +318,70 @@ class ContainerTest extends AbstractExpressiveContainerConfigTest
 
         $this->assertInstanceOf(Delegator::class, $service);
         $this->assertInstanceOf(\Closure::class, $service->callback);
+    }
+
+    /**
+     * @param array<string,mixed> $dependencies
+     * @dataProvider nonSharedServices
+     */
+    public function testCreatesNonSharedInstanceOfService(array $dependencies, bool $servicesAsSynthetic, string $service): void
+    {
+        $builder = new ContainerBuilder();
+        $config = new Config([
+            'dependencies' => $dependencies,
+        ], $servicesAsSynthetic);
+
+        $config->configureContainerBuilder($builder);
+        $builder->compile();
+
+        $instance1 = $builder->get($service);
+        $instance2 = $builder->get($service);
+
+        self::assertNotEquals($instance1, $instance2);
+    }
+
+    public function nonSharedServices(): Generator
+    {
+        yield 'invokable' => [
+            [
+                'shared' => [
+                    stdClass::class => false,
+                ],
+                'invokables' => [
+                    stdClass::class => stdClass::class,
+                ],
+            ],
+            false,
+            stdClass::class,
+        ];
+
+        yield 'factory' => [
+            [
+                'shared' => [
+                    stdClass::class => false,
+                ],
+                'factories' => [
+                    stdClass::class => static function () {return new stdClass();},
+                ],
+            ],
+            false,
+            stdClass::class,
+        ];
+
+        yield 'alias' => [
+            [
+                'shared' => [
+                    stdClass::class => false,
+                ],
+                'factories' => [
+                    stdClass::class => static function () {return new stdClass();},
+                ],
+                'aliases' => [
+                    'foo' => stdClass::class,
+                ],
+            ],
+            false,
+            'foo',
+        ];
     }
 }
