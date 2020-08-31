@@ -337,7 +337,7 @@ class ContainerTest extends AbstractExpressiveContainerConfigTest
         $instance1 = $builder->get($service);
         $instance2 = $builder->get($service);
 
-        self::assertNotEquals($instance1, $instance2);
+        self::assertNotSame($instance1, $instance2);
     }
 
     public function nonSharedServices(): Generator
