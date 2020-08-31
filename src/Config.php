@@ -95,6 +95,8 @@ class Config implements ConfigInterface
 
         if (isset($this->config['dependencies']) && is_array($this->config['dependencies'])) {
             $dependencies = $this->config['dependencies'];
+            /** @var bool $sharedByDefault */
+            $sharedByDefault = $dependencies['sharedByDefault'] ?? true;
 
             //Inject known services
             if (! empty($dependencies['services']) && is_array($dependencies['services'])) {
@@ -108,6 +110,9 @@ class Config implements ConfigInterface
                 }
             }
 
+            /** @var array<string,bool> $sharedServices */
+            $sharedServices = $dependencies['shared'] ?? [];
+
             //Inject invokable services
             if (! empty($dependencies['invokables']) && is_array($dependencies['invokables'])) {
                 foreach ($dependencies['invokables'] as $name => $invokable) {
@@ -115,6 +120,8 @@ class Config implements ConfigInterface
                     if (! is_string($name)) {
                         $name = $invokable;
                     }
+
+                    $shared = $sharedServices[$name] ?? $sharedByDefault;
 
                     //As Zend team proposes: all invokables must be registered by their actual class name
 
@@ -125,7 +132,7 @@ class Config implements ConfigInterface
                     if (! class_exists($invokable)) {
                         $this->registerWrapperForService($invokable, $builder);
                     } else {
-                        $builder->register($invokable, $invokable)->setPublic(true);
+                        $builder->register($invokable, $invokable)->setPublic(true)->setShared($shared);
                     }
 
                     /**
@@ -142,7 +149,8 @@ class Config implements ConfigInterface
             //Inject factories
             if (! empty($dependencies['factories']) && is_array($dependencies['factories'])) {
                 foreach ($dependencies['factories'] as $name => $factory) {
-                    $this->injectFactory($name, $factory, $builder);
+                    $shared = $sharedServices[$name] ?? $sharedByDefault;
+                    $this->injectFactory($name, $factory, $builder, $shared);
                 }
             }
 
@@ -151,9 +159,12 @@ class Config implements ConfigInterface
                 foreach ($dependencies['aliases'] as $alias => $target) {
                     //Compiler: Aliasing an actual service requires synthetic definition
                     if (isset($dependencies['services'][$target]) && ! $builder->hasDefinition($target)) {
-                        $builder->register($target, is_object($target) ? get_class($target) : gettype($target))
+                        $targetClass = is_object($target) ? get_class($target) : gettype($target);
+                        $shared = $sharedServices[$targetClass] ?? $sharedByDefault;
+                        $builder->register($target, $targetClass)
                             ->setSynthetic(true)
-                            ->setPublic(true);
+                            ->setPublic(true)
+                            ->setShared($shared);
                     }
 
                     $builder->setAlias($alias, $target)->setPublic(true);
@@ -192,7 +203,7 @@ class Config implements ConfigInterface
      *
      * @return void
      */
-    protected function injectFactory(string $id, $factory, ContainerBuilder $builder): void
+    protected function injectFactory(string $id, $factory, ContainerBuilder $builder, bool $shared): void
     {
         /**
          * support for invokable (object) and [(object), 'method']
@@ -218,7 +229,8 @@ class Config implements ConfigInterface
             $builder->register($id, $id)
                 ->setPublic(true)
                 ->setFactory([new Reference($factoryObjectServiceId), $method])
-                ->setArguments([new Reference('service_container'), $id]);
+                ->setArguments([new Reference('service_container'), $id])
+                ->setShared($shared);
 
             return;
         }
