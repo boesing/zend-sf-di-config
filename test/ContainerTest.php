@@ -404,4 +404,72 @@ class ContainerTest extends AbstractExpressiveContainerConfigTest
             stdClass::class,
         ];
     }
+
+    /**
+     * @param array<string,mixed> $dependencies
+     * @dataProvider sharedServiceInNonSharedContainer
+     */
+    public function testWillShareServiceWhenNotSharedByDefault(array $dependencies, string $service): void
+    {
+        $builder = new ContainerBuilder();
+        $config = new Config([
+            'dependencies' => $dependencies,
+        ]);
+
+        $config->configureContainerBuilder($builder);
+        $builder->compile();
+
+        $instance1 = $builder->get($service);
+        $instance2 = $builder->get($service);
+
+        self::assertSame($instance1, $instance2);
+    }
+
+    /**
+     * @return Generator<string,array<mixed>>
+     */
+    public function sharedServiceInNonSharedContainer(): Generator
+    {
+        yield 'invokable' => [
+            [
+                'sharedByDefault' => false,
+                'shared' => [
+                    stdClass::class => true,
+                ],
+                'invokables' => [
+                    stdClass::class => stdClass::class,
+                ],
+            ],
+            stdClass::class,
+        ];
+
+        yield 'factory' => [
+            [
+                'sharedByDefault' => false,
+                'shared' => [
+                    stdClass::class => true,
+                ],
+                'factories' => [
+                    stdClass::class => static function () {return new stdClass();},
+                ],
+            ],
+            stdClass::class,
+        ];
+
+        yield 'alias' => [
+            [
+                'sharedByDefault' => false,
+                'shared' => [
+                    stdClass::class => true,
+                ],
+                'factories' => [
+                    stdClass::class => static function () {return new stdClass();},
+                ],
+                'aliases' => [
+                    'foo' => stdClass::class,
+                ],
+            ],
+            'foo',
+        ];
+    }
 }
